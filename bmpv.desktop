@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=bmpv handler
+Exec=python /home/chen/proj/python/bmpv.py %U
+Type=Application
+Terminal=false
+MimeType=x-scheme-handler/bmpv
