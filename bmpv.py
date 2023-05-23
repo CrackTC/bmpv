@@ -6,10 +6,11 @@ from urllib.parse import urlparse, unquote
 
 class Video:
 
-    def __init__(self, url, title, video_url, audio_url, cid, resolution):
+    def __init__(self, url, title, video_info, audio_url, cid, resolution):
         self.url = url
         self.title = title
-        self.video_url = video_url
+        self.video_url = video_info[1]
+        self.is_dolby_vision = video_info[0].find('杜比视界') != -1
         self.audio_url = audio_url
         self.cid = cid
         self.resolution = resolution
@@ -71,16 +72,19 @@ class Video:
         self.danmaku_path = self.prepare_danmaku()
         self.subtitle_path = self.prepare_subtitle()
 
+        play_command = "mpv '{}' --audio-file='{}' --sub-file='{}' --sub-border-size=1 --no-ytdl --referrer='https://www.bilibili.com'".format(
+                self.video_url,
+                self.audio_url,
+                self.danmaku_path)
+
+        if self.is_dolby_vision:
+            play_command += ' --vo=gpu-next'
+
         if self.subtitle_path != None:
-            play_command = "mpv '{}' --audio-file='{}' --sub-file='{}' --sub-file='{}' --secondary-sid=auto --sub-border-size=1 --no-ytdl --referrer='https://www.bilibili.com'"
-            os.system(
-                play_command.format(self.video_url, self.audio_url,
-                                    self.danmaku_path, self.subtitle_path))
+            play_command += " --sub-file='{}' --secondary-sid=auto"
+            os.system(play_command.format(self.subtitle_path))
         else:
-            play_command = "mpv '{}' --audio-file='{}' --sub-file='{}' --sub-border-size=1 --no-ytdl --referrer='https://www.bilibili.com'"
-            os.system(
-                play_command.format(self.video_url, self.audio_url,
-                                    self.danmaku_path))
+            os.system(play_command)
         os.remove(self.danmaku_path)
 
 
@@ -104,9 +108,10 @@ def get_title(bbdown_output):
     return re.search(pattern, bbdown_output).group(1)
 
 
-def get_video_url(bbdown_output):
-    pattern = r'(?m)\d+\.( \[.+?\]){6}$\s+(.*?)$'
-    return re.search(pattern, bbdown_output).group(2)
+def get_video_info(bbdown_output):
+    pattern = r'(?m)\d+\.( \[.+?\])( \[.+?\]){5}$\s+(.*?)$'
+    match = re.search(pattern, bbdown_output)
+    return (match.group(1), match.group(3))
 
 
 def get_audio_url(bbdown_output):
@@ -120,13 +125,15 @@ def get_resolution(bbdown_output):
 
 
 def get_bbdown_output(url):
-    return os.popen("BBDown '{}' --encoding-priority 'av1,hevc,avc' -info".format(url)).read()
+    return os.popen(
+        "BBDown '{}' --encoding-priority 'hevc,av1,avc' -info".format(
+            url)).read()
 
 
 def resolve(params):
     url = params['url']
     output = get_bbdown_output(url)
-    return Video(url, get_title(output), get_video_url(output),
+    return Video(url, get_title(output), get_video_info(output),
                  get_audio_url(output), params['cid'], get_resolution(output))
 
 
