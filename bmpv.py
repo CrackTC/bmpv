@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import re
 import requests
@@ -51,7 +52,7 @@ class Video:
         exit_code = os.system(
             'danmaku2ass --font MiSans -a 0.6 -fs 36 -dm 10 -ds 10 --size {} -o "{}" "{}"'
             # .format(self.resolution, output_path, input_path))
-            .format('1920x1080', output_path, input_path))
+            .format('2560x1440', output_path.replace('"', '\\"'), input_path.replace('"', '\\"')))
         if exit_code != 0:
             raise Exception(
                 'danmaku2ass: process exited with non-zero code: {}'.format(
@@ -75,7 +76,7 @@ class Video:
         play_command = "mpv '{}' --audio-file='{}' --sub-file='{}' --sub-border-size=1 --no-ytdl --referrer='https://www.bilibili.com'".format(
                 self.video_url,
                 self.audio_url,
-                self.danmaku_path)
+                self.danmaku_path.replace('\'', "\\'"))
 
         if self.is_dolby_vision:
             play_command += ' --vo=gpu-next'
@@ -144,7 +145,6 @@ def main():
         resolve(parse_params(get_url())).play()
     except Exception as err:
         print(err.__repr__())
-        input()
 
 
 if __name__ == "__main__":
