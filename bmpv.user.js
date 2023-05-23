@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         biliplay
+// @name         bmpv
 // @namespace    sora.zip
 // @version      0.1
 // @description  play bilibili video in mpv
