@@ -1,0 +1,8 @@
+{
+    "font": "serif",
+    "font_size": 26,
+    "danmaku_opacity": 0.8,
+    "marquee_duration": 10,
+    "still_duration": 10,
+    "size": "2560x1440"
+}

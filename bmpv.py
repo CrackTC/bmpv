@@ -2,7 +2,29 @@
 import os
 import re
 import requests
+import json
 from urllib.parse import urlparse, unquote
+
+
+class Configuration:
+
+    def __init__(self, font: str, font_size: int, danmaku_opacity: float,
+                 marquee_duration: int, still_duration: int, size: str):
+        self.font = font
+        self.font_size = font_size
+        self.danmaku_opacity = danmaku_opacity
+        self.marquee_duration = marquee_duration
+        self.still_duration = still_duration
+        self.size = size
+
+
+def parse_configuration(path):
+    # read json formatted configuration from path
+    configuration = json.load(open(path, 'r'))
+    return Configuration(configuration['font'], configuration['font_size'],
+                         configuration['danmaku_opacity'],
+                         configuration['marquee_duration'],
+                         configuration['still_duration'], configuration['size'])
 
 
 class Video:
@@ -18,7 +40,7 @@ class Video:
 
     def download_subtitle(self, work_dir):
         exit_code = os.system('BBDown "{}" --sub-only --work-dir "{}"'.format(
-            self.url, work_dir))
+            self.url.replace('"', '\\"'), work_dir.replace('"', '\\"')))
         if exit_code != 0:
             raise Exception(
                 'BBDown: process exited with non-zero code: {}'.format(
@@ -30,7 +52,7 @@ class Video:
 
         sub_dir = os.path.join(work_dir, quoted_title, '')
         if os.path.exists(sub_dir):
-            os.system('rm -rf {}'.format(sub_dir))
+            os.system('rm -rf "{}"'.format(sub_dir.replace('"', '\\"')))
 
         self.download_subtitle(work_dir)
 
@@ -50,9 +72,16 @@ class Video:
 
     def generate_danmaku_ass(self, input_path, output_path):
         exit_code = os.system(
-            'danmaku2ass --font MiSans -a 0.6 -fs 36 -dm 10 -ds 10 --size {} -o "{}" "{}"'
+            'danmaku2ass --font "{}" -a {} -fs {} -dm {} -ds {} --size {} -o "{}" "{}"'
             # .format(self.resolution, output_path, input_path))
-            .format('2560x1440', output_path.replace('"', '\\"'), input_path.replace('"', '\\"')))
+            .format(self.configuration.font.replace('"', '\\"'),
+                    self.configuration.danmaku_opacity,
+                    self.configuration.font_size,
+                    self.configuration.marquee_duration,
+                    self.configuration.still_duration,
+                    self.configuration.size,
+                    output_path.replace('"', '\\"'),
+                    input_path.replace('"', '\\"')))
         if exit_code != 0:
             raise Exception(
                 'danmaku2ass: process exited with non-zero code: {}'.format(
@@ -69,14 +98,14 @@ class Video:
         os.remove(xml_path)
         return ass_path
 
-    def play(self):
+    def play(self, configuration: Configuration) -> None:
+        self.configuration = configuration
         self.danmaku_path = self.prepare_danmaku()
         self.subtitle_path = self.prepare_subtitle()
 
         play_command = "mpv '{}' --audio-file='{}' --sub-file='{}' --sub-border-size=1 --no-ytdl --referrer='https://www.bilibili.com'".format(
-                self.video_url,
-                self.audio_url,
-                self.danmaku_path.replace('\'', "\\'"))
+            self.video_url, self.audio_url,
+            self.danmaku_path.replace('\'', "\\'"))
 
         if self.is_dolby_vision:
             play_command += ' --vo=gpu-next'
@@ -138,11 +167,39 @@ def resolve(params):
                  get_audio_url(output), params['cid'], get_resolution(output))
 
 
+def load_configuration() -> Configuration:
+    # search common configuration path
+    paths = []
+
+    # $XDG_CONFIG_HOME
+    if 'XDG_CONFIG_HOME' in os.environ:
+        paths.append(
+            os.path.join(os.environ['XDG_CONFIG_HOME'], 'bmpv', 'config.json'))
+
+    # $HOME/.config
+    paths.append(
+        os.path.join(os.environ['HOME'], '.config', 'bmpv', 'config.json'))
+
+    # /etc
+    paths.append(os.path.join('/etc', 'bmpv', 'config.json'))
+
+    for path in paths:
+        if os.path.exists(path):
+            return parse_configuration(path)
+
+    return Configuration(font='serif',
+                         font_size=36,
+                         danmaku_opacity=0.6,
+                         marquee_duration=10,
+                         still_duration=10,
+                         size='2560x1440')
+
+
 # bmpv:///?url=www.bilibili.com/video/av1&cid=12345
 def main():
     print(os.sys.argv)
     try:
-        resolve(parse_params(get_url())).play()
+        resolve(parse_params(get_url())).play(load_configuration())
     except Exception as err:
         print(err.__repr__())
 
