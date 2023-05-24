@@ -69,7 +69,7 @@ chmod +x /usr/bin/bmpv
 echo "bmpv installed successfully"
 
 # remind user to add script to tampermonkey
-echo "Please add bmpb.user.js to tampermonkey"
+echo "Please add bmpv.user.js to tampermonkey"
 
 # print biliplay.user.js
 cat ./bmpv.user.js
