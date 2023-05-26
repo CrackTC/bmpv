@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 import os
+import sys
 import re
-import requests
 import json
+import requests
 from urllib.parse import urlparse, unquote
 
 
 class Configuration:
 
     def __init__(self, font: str, font_size: int, danmaku_opacity: float,
-                 marquee_duration: int, still_duration: int, size: str):
+                 marquee_duration: int, still_duration: int,
+                 size: str) -> None:
         self.font = font
         self.font_size = font_size
         self.danmaku_opacity = danmaku_opacity
@@ -18,18 +20,20 @@ class Configuration:
         self.size = size
 
 
-def parse_configuration(path):
+def parse_configuration(path) -> Configuration:
     # read json formatted configuration from path
-    configuration = json.load(open(path, 'r'))
+    configuration = json.load(open(path, 'r', encoding='utf-8'))
     return Configuration(configuration['font'], configuration['font_size'],
                          configuration['danmaku_opacity'],
                          configuration['marquee_duration'],
-                         configuration['still_duration'], configuration['size'])
+                         configuration['still_duration'],
+                         configuration['size'])
 
 
 class Video:
 
-    def __init__(self, url, title, video_info, audio_url, cid, resolution):
+    def __init__(self, url: str, title: str, video_info: tuple[str, str],
+                 audio_url: str, cid: str, resolution: str) -> None:
         self.url = url
         self.title = title
         self.video_url = video_info[1]
@@ -38,7 +42,7 @@ class Video:
         self.cid = cid
         self.resolution = resolution
 
-    def download_subtitle(self, work_dir):
+    def download_subtitle(self, work_dir) -> None:
         exit_code = os.system('BBDown "{}" --sub-only --work-dir "{}"'.format(
             self.url.replace('"', '\\"'), work_dir.replace('"', '\\"')))
         if exit_code != 0:
@@ -46,7 +50,7 @@ class Video:
                 'BBDown: process exited with non-zero code: {}'.format(
                     exit_code))
 
-    def prepare_subtitle(self):
+    def prepare_subtitle(self) -> (str | None):
         work_dir = '/tmp'
         quoted_title = self.title.replace('/', '.')
 
@@ -64,13 +68,13 @@ class Video:
 
         return None
 
-    def download_danmaku_xml(self, path):
+    def download_danmaku_xml(self, path) -> None:
         danmaku_url = 'https://comment.bilibili.com/{}.xml'
         response = requests.get(danmaku_url.format(self.cid))
         response.encoding = 'utf-8'
         open(path, 'w').write(response.text)
 
-    def generate_danmaku_ass(self, input_path, output_path):
+    def generate_danmaku_ass(self, input_path, output_path) -> None:
         exit_code = os.system(
             'danmaku2ass --font "{}" -a {} -fs {} -dm {} -ds {} --size {} -o "{}" "{}"'
             # .format(self.resolution, output_path, input_path))
@@ -87,7 +91,7 @@ class Video:
                 'danmaku2ass: process exited with non-zero code: {}'.format(
                     exit_code))
 
-    def prepare_danmaku(self):
+    def prepare_danmaku(self) -> str:
         quoted_title = self.title.replace('/', '.')
         xml_path = '/tmp/{}.xml'.format(quoted_title)
         ass_path = '/tmp/{}.ass'.format(quoted_title)
@@ -118,11 +122,11 @@ class Video:
         os.remove(self.danmaku_path)
 
 
-def get_url():
-    return os.sys.argv[1]
+def get_url() -> str:
+    return sys.argv[1]
 
 
-def parse_params(url):
+def parse_params(url) -> dict[str, str]:
     assignments = [
         raw_assignment.split('=')
         for raw_assignment in urlparse(url).query.split('&')
@@ -133,35 +137,46 @@ def parse_params(url):
     }
 
 
-def get_title(bbdown_output):
+def get_title(bbdown_output) -> str:
     pattern = r'(?m)视频标题: (.*)'
-    return re.search(pattern, bbdown_output).group(1)
+    result = re.search(pattern, bbdown_output)
+    if result:
+        return result.group(1)
+    raise Exception('BBDown: no title found')
 
 
-def get_video_info(bbdown_output):
+def get_video_info(bbdown_output) -> tuple:
     pattern = r'(?m)\d+\.( \[.+?\])( \[.+?\]){5}$\s+(.*?)$'
     match = re.search(pattern, bbdown_output)
-    return (match.group(1), match.group(3))
+    if match:
+        return (match.group(1), match.group(3))
+    raise Exception('BBDown: failed to get video info')
 
 
-def get_audio_url(bbdown_output):
+def get_audio_url(bbdown_output) -> str:
     pattern = r'(?m)\d+\. \[M4A\]( \[.+?\])+$\s+(.*?)$'
-    return re.search(pattern, bbdown_output).group(2)
+    result = re.search(pattern, bbdown_output)
+    if result:
+        return result.group(2)
+    raise Exception('BBDown: no audio found')
 
 
-def get_resolution(bbdown_output):
+def get_resolution(bbdown_output) -> str:
     pattern = r'(?m)\d+\.( \[(.+?)\]){2}( \[.+?\]){4}$\s+(.*?)$'
-    return re.search(pattern, bbdown_output).group(2)
+    result = re.search(pattern, bbdown_output)
+    if result:
+        return result.group(2)
+    raise Exception('BBDown: no resolution found')
 
 
-def get_bbdown_output(url):
+def get_bbdown_output(url) -> str:
     return os.popen(
         "BBDown '{}' --encoding-priority 'hevc,av1,avc' -info".format(
             url)).read()
 
 
-def resolve(params):
-    url = params['url']
+def resolve(params: dict[str, str]) -> Video:
+    url: str = params['url']
     output = get_bbdown_output(url)
     return Video(url, get_title(output), get_video_info(output),
                  get_audio_url(output), params['cid'], get_resolution(output))
@@ -169,7 +184,7 @@ def resolve(params):
 
 def load_configuration() -> Configuration:
     # search common configuration path
-    paths = []
+    paths: list[str] = []
 
     # $XDG_CONFIG_HOME
     if 'XDG_CONFIG_HOME' in os.environ:
@@ -196,12 +211,12 @@ def load_configuration() -> Configuration:
 
 
 # bmpv:///?url=www.bilibili.com/video/av1&cid=12345
-def main():
-    print(os.sys.argv)
+def main() -> None:
+    print(sys.argv)
     try:
         resolve(parse_params(get_url())).play(load_configuration())
     except Exception as err:
-        print(err.__repr__())
+        print(err.__repr__(), file=sys.stderr)
 
 
 if __name__ == "__main__":
