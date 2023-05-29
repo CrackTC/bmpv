@@ -141,9 +141,9 @@ def parse_params(url) -> dict[str, str]:
 
 def get_title(bbdown_output) -> str:
     pattern = r'(?m)视频标题: (.*)'
-    result = re.search(pattern, bbdown_output)
-    if result:
-        return result.group(1)
+    match = re.search(pattern, bbdown_output)
+    if match:
+        return match.group(1)
     raise Exception('BBDown: no title found')
 
 
@@ -156,18 +156,19 @@ def get_video_info(bbdown_output) -> tuple:
 
 
 def get_audio_url(bbdown_output) -> str | None:
-    pattern = r'(?m)\d+\. \[M4A\]( \[.+?\])+$\s+(.*?)$'
-    result = re.search(pattern, bbdown_output)
-    if result:
-        return result.group(2)
+    bbdown_output = bbdown_output[bbdown_output.find('音频流'):]
+    pattern = r'(?m)\d+\.( \[.+?\])+$\s+(.*?)$'
+    match = re.search(pattern, bbdown_output)
+    if match:
+        return match.group(2)
     return None
 
 
 def get_resolution(bbdown_output) -> str:
     pattern = r'(?m)\d+\.( \[(.+?)\]){2}( \[.+?\]){4}$\s+(.*?)$'
-    result = re.search(pattern, bbdown_output)
-    if result:
-        return result.group(2)
+    match = re.search(pattern, bbdown_output)
+    if match:
+        return match.group(2)
     raise Exception('BBDown: no resolution found')
 
 
