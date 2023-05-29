@@ -33,7 +33,7 @@ def parse_configuration(path) -> Configuration:
 class Video:
 
     def __init__(self, url: str, title: str, video_info: tuple[str, str],
-                 audio_url: str, cid: str, resolution: str) -> None:
+                 audio_url: str | None, cid: str, resolution: str) -> None:
         self.url = url
         self.title = title
         self.video_url = video_info[1]
@@ -107,9 +107,11 @@ class Video:
         self.danmaku_path = self.prepare_danmaku()
         self.subtitle_path = self.prepare_subtitle()
 
-        play_command = "mpv '{}' --audio-file='{}' --sub-file='{}' --sub-border-size=1 --no-ytdl --referrer='https://www.bilibili.com'".format(
-            self.video_url, self.audio_url,
-            self.danmaku_path.replace('\'', "\\'"))
+        play_command = "mpv '{}' --sub-file='{}' --sub-border-size=1 --no-ytdl --referrer='https://www.bilibili.com'".format(
+            self.video_url, self.danmaku_path.replace('\'', "\\'"))
+
+        if self.audio_url != None:
+            play_command += " --audio-file='{}'".format(self.audio_url)
 
         if self.is_dolby_vision:
             play_command += ' --vo=gpu-next'
@@ -153,12 +155,12 @@ def get_video_info(bbdown_output) -> tuple:
     raise Exception('BBDown: failed to get video info')
 
 
-def get_audio_url(bbdown_output) -> str:
+def get_audio_url(bbdown_output) -> str | None:
     pattern = r'(?m)\d+\. \[M4A\]( \[.+?\])+$\s+(.*?)$'
     result = re.search(pattern, bbdown_output)
     if result:
         return result.group(2)
-    raise Exception('BBDown: no audio found')
+    return None
 
 
 def get_resolution(bbdown_output) -> str:
