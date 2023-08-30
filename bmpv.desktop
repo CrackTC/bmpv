@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=bmpv handler
-Exec=bmpv %U
+Exec=env LD_PRELOAD= bmpv %U
 Type=Application
 Terminal=false
 MimeType=x-scheme-handler/bmpv
